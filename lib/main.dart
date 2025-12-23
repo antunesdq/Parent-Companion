@@ -1,108 +1,126 @@
+/// This is the main entry point of the Flutter application.
+/// This file is responsible for setting up the app's root widget and managing the main UI.
+/// It defines the structure and behavior of the app's home page and floating action buttons.
+
+
+// Dart import statements bring in external libraries or packages into the current file.
+// The 'material.dart' package provides a set of visual, structural, platform, and interactive widgets
+// following the Material Design guidelines.
 import 'package:flutter/material.dart';
 
+
+// The main() function is the entry point of every Dart application.
+// In Flutter, main() calls runApp(), which takes the given widget and makes it the root of the widget tree.
+// Passing MyApp() to runApp() tells Flutter to inflate and display the MyApp widget when the app starts.
 void main() {
   runApp(const MyApp());
 }
 
+
+/// MyApp is a StatelessWidget, which means it describes part of the user interface by building a constellation of other widgets.
+/// StatelessWidgets are immutable and should be used when the UI does not depend on any mutable state.
+/// MyApp is stateless because it only sets up the app's theme and home page, which do not change dynamically.
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
+  /// The build method is called whenever the widget needs to be rendered.
+/// It describes the part of the UI represented by this widget.
+/// The BuildContext argument provides information about the location of this widget in the widget tree,
+/// which can be used to access theme data, localization, and other inherited widgets.
+/// Flutter rebuilds widgets when their configuration changes or when setState is called on a StatefulWidget.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      // The title property sets the title of the application.
+      // On some platforms, this may be used as the window title or task description.
+      title: 'Parent Companion',
+
+      // The theme property defines the overall visual theme of the app.
+      // It controls colors, fonts, and other design aspects.
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+        // The colorScheme defines the colors used throughout the app.
+        // Using ColorScheme.fromSeed generates a color scheme based on a seed color.
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+
+      // The home property specifies the default route of the app,
+      // which is displayed when the app starts.
+      home: const MyHomePage(title: 'Parent Companion'),
     );
   }
 }
 
+
+/// MyHomePage is a StatefulWidget, which means it has mutable state that can change over time.
+/// This widget needs state because it tracks user interactions like button presses and toggle states,
+/// which affect the UI dynamically.
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
+  /// The title field is marked as final, meaning it cannot be changed after being set.
+  /// Data is passed into widgets via constructor parameters like this,
+  /// allowing widgets to receive configuration information.
   final String title;
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
+
+/// The State class holds the mutable state for a StatefulWidget.
+/// Separating the widget from its state allows Flutter to rebuild widgets efficiently while preserving state.
+/// The leading underscore in Dart means this class is private to the library,
+/// preventing it from being accessed outside this file.
 class _MyHomePageState extends State<MyHomePage> {
+  /// _counter keeps track of how many times the button has been pressed.
+  /// It is part of the state because it changes in response to user actions,
+  /// and the UI needs to update to reflect the new value.
   int _counter = 0;
 
+  /// _isFabExpanded tracks whether the floating action button options are expanded or not.
+  /// This boolean state controls the visibility and animation of additional buttons.
+  bool _isFabExpanded = false;
+
+  /// _activeNoise stores which noise type (white or brown) is currently active.
+  /// It is nullable because no noise may be active at times.
+  /// This state controls the UI to indicate which noise is playing.
+  _NoiseType? _activeNoise;
+
+  /// _incrementCounter increases the _counter state by one.
+  /// Calling setState tells Flutter that the state has changed and the UI should be rebuilt to reflect the update.
   void _incrementCounter() {
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
       _counter++;
+    });
+  }
+
+  /// _toggleNoise toggles the active noise type.
+  /// It uses a ternary operator to check if the selected noise is already active;
+  /// if so, it sets _activeNoise to null (turning it off), otherwise it sets it to the selected type.
+  /// _isFabExpanded is set to false to close the expanded FAB options after selection.
+  void _toggleNoise(_NoiseType type) {
+    setState(() {
+      _activeNoise = _activeNoise == type ? null : type;
+      _isFabExpanded = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    // Scaffold provides a basic visual layout structure for the app,
+    // including app bar, body, floating action button, and more.
     return Scaffold(
+      // AppBar is the top toolbar that typically contains the title and actions.
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
         title: Text(widget.title),
       ),
+      // The body is the main content area of the screen.
+      // Center centers its child widget within itself.
+      // Column arranges its children vertically.
       body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text('You have pushed the button this many times:'),
             Text(
@@ -112,10 +130,133 @@ class _MyHomePageState extends State<MyHomePage> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+      // floatingActionButtonLocation controls where the floating action button is placed on the screen.
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      // Stack is used here to allow multiple floating action buttons to overlap and be positioned relative to each other.
+      // This enables the expanding/collapsing effect of multiple FAB options.
+      floatingActionButton: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.bottomRight,
+        children: [
+          // AnimatedSlide provides a sliding animation for its child.
+          // When _isFabExpanded is true, the offset is zero (no slide),
+          // otherwise it slides down slightly.
+          AnimatedSlide(
+            offset: _isFabExpanded ? Offset.zero : const Offset(0, 0.2),
+            duration: const Duration(milliseconds: 200),
+            // AnimatedOpacity animates the opacity of its child.
+            // It fades in when _isFabExpanded is true, and fades out when false.
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: _isFabExpanded ? 1 : 0,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 72.0),
+                child: _ExpandingAction(
+                  label: _activeNoise == _NoiseType.white ? 'Stop White Noise' : 'White Noise',
+                  icon: _activeNoise == _NoiseType.white ? Icons.volume_off : Icons.volume_up,
+                  onPressed: () => _toggleNoise(_NoiseType.white),
+                  heroTag: 'noise_white',
+                ),
+              ),
+            ),
+          ),
+          // Another AnimatedSlide and AnimatedOpacity pair for the brown noise button.
+          AnimatedSlide(
+            offset: _isFabExpanded ? Offset.zero : const Offset(0, 0.2),
+            duration: const Duration(milliseconds: 200),
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: _isFabExpanded ? 1 : 0,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 132.0),
+                child: _ExpandingAction(
+                  label: _activeNoise == _NoiseType.brown ? 'Stop Brown Noise' : 'Brown Noise',
+                  icon: _activeNoise == _NoiseType.brown ? Icons.volume_off : Icons.volume_up,
+                  onPressed: () => _toggleNoise(_NoiseType.brown),
+                  heroTag: 'noise_brown',
+                ),
+              ),
+            ),
+          ),
+          // The main FloatingActionButton controls the expansion and collapse of the additional FAB options.
+          // AnimatedRotation smoothly rotates the plus icon when toggling.
+          // The icon rotates 45 degrees (0.125 turns) when expanded to indicate the close action.
+          FloatingActionButton(
+            onPressed: () => setState(() => _isFabExpanded = !_isFabExpanded),
+            tooltip: _isFabExpanded ? 'Close options' : 'Show options',
+            child: AnimatedRotation(
+              turns: _isFabExpanded ? 0.125 : 0,
+              duration: const Duration(milliseconds: 200),
+              child: const Icon(Icons.add),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// _NoiseType is an enum representing the types of noise available.
+/// Enums in Dart define a fixed set of constant values.
+/// Using enums here is preferable to strings because it provides type safety and prevents invalid values.
+enum _NoiseType { white, brown }
+
+/// _ExpandingAction is a stateless widget representing one of the expanding floating action buttons.
+/// It exists to encapsulate the UI and behavior of the labeled button with an icon.
+/// This widget is stateless because it only depends on the parameters passed to it and does not manage any internal state.
+/// It helps keep the code modular and reusable.
+class _ExpandingAction extends StatelessWidget {
+  /// The label displayed next to the button.
+  final String label;
+
+  /// The icon displayed inside the floating action button.
+  final IconData icon;
+
+  /// The callback function executed when the button is pressed.
+  final VoidCallback onPressed;
+
+  /// The heroTag is used for hero animations and must be unique among FABs.
+  final String heroTag;
+
+  const _ExpandingAction({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+    required this.heroTag,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Padding adds space below the entire row to separate it from other elements.
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      // Row arranges the label and button horizontally.
+      // mainAxisSize.min makes the row only as wide as its children.
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Container styles the label with background color, padding, margin, and rounded corners.
+          // The semi-transparent black background improves readability on various backgrounds.
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.65),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              label,
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+          // FloatingActionButton.small provides a smaller FAB for compact UI.
+          // It uses the passed icon and onPressed callback.
+          FloatingActionButton.small(
+            heroTag: heroTag,
+            onPressed: onPressed,
+            child: Icon(icon),
+          ),
+        ],
       ),
     );
   }
