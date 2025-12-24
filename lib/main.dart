@@ -6,6 +6,7 @@
 // Dart import statements bring in external libraries or packages into the current file.
 // The 'material.dart' package provides a set of visual, structural, platform, and interactive widgets
 // following the Material Design guidelines.
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 
@@ -72,6 +73,8 @@ class MyHomePage extends StatefulWidget {
 /// The leading underscore in Dart means this class is private to the library,
 /// preventing it from being accessed outside this file.
 class _MyHomePageState extends State<MyHomePage> {
+  /// _player handles audio playback for the looping noise tracks.
+  late final AudioPlayer _player;
   /// _counter keeps track of how many times the button has been pressed.
   /// It is part of the state because it changes in response to user actions,
   /// and the UI needs to update to reflect the new value.
@@ -86,6 +89,13 @@ class _MyHomePageState extends State<MyHomePage> {
   /// This state controls the UI to indicate which noise is playing.
   _NoiseType? _activeNoise;
 
+  /// Initializes the looping audio player.
+  @override
+  void initState() {
+    super.initState();
+    _player = AudioPlayer()..setReleaseMode(ReleaseMode.loop);
+  }
+
   /// _incrementCounter increases the _counter state by one.
   /// Calling setState tells Flutter that the state has changed and the UI should be rebuilt to reflect the update.
   void _incrementCounter() {
@@ -94,15 +104,39 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  /// _toggleNoise toggles the active noise type.
-  /// It uses a ternary operator to check if the selected noise is already active;
-  /// if so, it sets _activeNoise to null (turning it off), otherwise it sets it to the selected type.
-  /// _isFabExpanded is set to false to close the expanded FAB options after selection.
-  void _toggleNoise(_NoiseType type) {
+  /// _toggleNoise toggles the active noise type and starts/stops playback accordingly.
+  /// It closes the expanded FAB options after selection.
+  Future<void> _toggleNoise(_NoiseType type) async {
+    final nextNoise = _activeNoise == type ? null : type;
     setState(() {
-      _activeNoise = _activeNoise == type ? null : type;
+      _activeNoise = nextNoise;
       _isFabExpanded = false;
     });
+    await _handleNoiseChange(nextNoise);
+  }
+
+  /// Starts or stops the looping audio when the active noise changes.
+  Future<void> _handleNoiseChange(_NoiseType? nextNoise) async {
+    if (nextNoise == null) {
+      await _player.stop();
+      return;
+    }
+
+    // Ensure we don't overlap noises when switching.
+    await _player.stop();
+
+    final source = switch (nextNoise) {
+      _NoiseType.white => AssetSource('audio/white_noise.wav'),
+      _NoiseType.brown => AssetSource('audio/brown_noise.wav'),
+    };
+
+    await _player.play(source);
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
   }
 
   @override
