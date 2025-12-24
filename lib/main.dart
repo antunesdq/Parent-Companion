@@ -75,10 +75,8 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   /// _player handles audio playback for the looping noise tracks.
   late final AudioPlayer _player;
-  /// _counter keeps track of how many times the button has been pressed.
-  /// It is part of the state because it changes in response to user actions,
-  /// and the UI needs to update to reflect the new value.
-  int _counter = 0;
+  final ScrollController _timelineController = ScrollController();
+  double _hoursSpan = 24;
 
   /// _isFabExpanded tracks whether the floating action button options are expanded or not.
   /// This boolean state controls the visibility and animation of additional buttons.
@@ -88,23 +86,23 @@ class _MyHomePageState extends State<MyHomePage> {
   /// It is nullable because no noise may be active at times.
   /// This state controls the UI to indicate which noise is playing.
   _NoiseType? _activeNoise;
+  final List<_Event> _events = [];
 
   /// Initializes the looping audio player.
   @override
   void initState() {
     super.initState();
     _player = AudioPlayer()..setReleaseMode(ReleaseMode.loop);
-  }
-
-  /// _incrementCounter increases the _counter state by one.
-  /// Calling setState tells Flutter that the state has changed and the UI should be rebuilt to reflect the update.
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_timelineController.hasClients) {
+        _timelineController.jumpTo(_timelineController.position.maxScrollExtent);
+      }
     });
+    _timelineController.addListener(_handleTimelineScroll);
   }
 
-  /// _toggleNoise toggles the active noise type and starts/stops playback accordingly.
+
+  /// _toggleNoise toggles the active xnoise type and starts/stops playback accordingly.
   /// It closes the expanded FAB options after selection.
   Future<void> _toggleNoise(_NoiseType type) async {
     final nextNoise = _activeNoise == type ? null : type;
@@ -113,6 +111,30 @@ class _MyHomePageState extends State<MyHomePage> {
       _isFabExpanded = false;
     });
     await _handleNoiseChange(nextNoise);
+  }
+
+  void _addEvent(_ActivityType activity) {
+    final now = DateTime.now();
+    setState(() {
+      _events.add(_Event(activity: activity, time: now));
+      _events.removeWhere((e) => now.difference(e.time) > const Duration(hours: 24));
+    });
+  }
+
+  void _handleTimelineScroll() {
+    if (!_timelineController.hasClients) return;
+    if (_timelineController.offset <= 30) {
+      setState(() {
+        _hoursSpan += 24;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_timelineController.hasClients) {
+          _timelineController.jumpTo(
+            _timelineController.offset + _TimelinePainter.pxPerHour * 24,
+          );
+        }
+      });
+    }
   }
 
   /// Starts or stops the looping audio when the active noise changes.
@@ -136,6 +158,8 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void dispose() {
     _player.dispose();
+    _timelineController.removeListener(_handleTimelineScroll);
+    _timelineController.dispose();
     super.dispose();
   }
 
@@ -152,16 +176,94 @@ class _MyHomePageState extends State<MyHomePage> {
       // The body is the main content area of the screen.
       // Center centers its child widget within itself.
       // Column arranges its children vertically.
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFF7F9FF), Color(0xFFFDF7FF)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Activity Timeline',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF2E2E42),
+                      ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Last 24 hours of activity',
+                  style: TextStyle(color: Color(0xFF6F7390)),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.06),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        height: _TimelinePainter.canvasHeight,
+                        child: _Timeline(
+                          events: _events,
+                          controller: _timelineController,
+                          hoursSpanHours: _hoursSpan,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _EventButton(
+                            color: _activityColors[_ActivityType.bottle]!,
+                            icon: _buildActivityIcon(_ActivityType.bottle, 18),
+                            onPressed: () => _addEvent(_ActivityType.bottle),
+                          ),
+                          _EventButton(
+                            color: _activityColors[_ActivityType.diaper]!,
+                            icon: _buildActivityIcon(_ActivityType.diaper, 18),
+                            onPressed: () => _addEvent(_ActivityType.diaper),
+                          ),
+                          _EventButton(
+                            color: _activityColors[_ActivityType.poop]!,
+                            icon: _buildActivityIcon(_ActivityType.poop, 18),
+                            onPressed: () => _addEvent(_ActivityType.poop),
+                          ),
+                          _EventButton(
+                            color: _activityColors[_ActivityType.nap]!,
+                            icon: _buildActivityIcon(_ActivityType.nap, 18),
+                            onPressed: () => _addEvent(_ActivityType.nap),
+                          ),
+                          _EventButton(
+                            color: _activityColors[_ActivityType.shower]!,
+                            icon: _buildActivityIcon(_ActivityType.shower, 18),
+                            onPressed: () => _addEvent(_ActivityType.shower),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
       // floatingActionButtonLocation controls where the floating action button is placed on the screen.
@@ -289,6 +391,276 @@ class _ExpandingAction extends StatelessWidget {
             heroTag: heroTag,
             onPressed: onPressed,
             child: Icon(icon),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _ActivityType { bottle, diaper, poop, nap, shower }
+
+const _activityColors = <_ActivityType, Color>{
+  _ActivityType.bottle: Color(0xFF6BA6FF),
+  _ActivityType.diaper: Color(0xFFFFC85B),
+  _ActivityType.poop: Color(0xFFB07C57),
+  _ActivityType.nap: Color(0xFFB48CFF),
+  _ActivityType.shower: Color(0xFF6ED3C2),
+};
+
+const _activityIcons = <_ActivityType, IconData?>{
+  _ActivityType.bottle: Icons.local_drink_outlined,
+  _ActivityType.diaper: Icons.baby_changing_station,
+  _ActivityType.poop: null, // uses custom asset
+  _ActivityType.nap: Icons.nightlight_round,
+  _ActivityType.shower: Icons.shower_outlined,
+};
+
+Widget _buildActivityIcon(_ActivityType type, double size) {
+  final iconData = _activityIcons[type];
+  final color = _activityColors[type]!;
+  if (iconData != null) {
+    return Icon(iconData, color: color, size: size);
+  }
+  if (type == _ActivityType.poop) {
+    return Image.asset(
+      'assets/images/poop.png',
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+    );
+  }
+  return Icon(Icons.circle, color: color, size: size);
+}
+
+class _Event {
+  _Event({required this.activity, required this.time});
+
+  final _ActivityType activity;
+  final DateTime time;
+}
+
+class _Timeline extends StatelessWidget {
+  const _Timeline({
+    required this.events,
+    required this.controller,
+    required this.hoursSpanHours,
+  });
+
+  final List<_Event> events;
+  final ScrollController controller;
+  final double hoursSpanHours;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final filtered = events
+        .where((e) => now.difference(e.time) <= const Duration(hours: 24))
+        .toList();
+
+    return SizedBox(
+      height: _TimelinePainter.canvasHeight,
+      child: Row(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: _TimelinePainter.topPadding - 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: _ActivityType.values
+                  .map(
+                    (type) => SizedBox(
+                      height: _TimelinePainter.rowHeight,
+                      width: 44,
+                          child: Center(child: _buildActivityIcon(type, 20)),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              controller: controller,
+              child: ClipRect(
+                child: CustomPaint(
+                  size: Size(
+                    _TimelinePainter.widthForHours(hoursSpanHours),
+                    _TimelinePainter.canvasHeight,
+                  ),
+                  painter: _TimelinePainter(filtered, now, hoursSpanHours),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TimelinePainter extends CustomPainter {
+  _TimelinePainter(this.events, this.now, this.hoursSpanHours)
+      : chartWidth = widthForHours(hoursSpanHours);
+
+  final List<_Event> events;
+  final DateTime now;
+  final double hoursSpanHours;
+  final double chartWidth;
+
+  static const double rowHeight = 44;
+  static const double laneHeight = rowHeight - 10;
+  static const double topPadding = 20;
+  static const double bottomPadding = 8;
+  static const double leftPadding = 16;
+  static const double rightPadding = 12;
+  static const double pxPerHour = 50;
+  static double widthForHours(double hours) =>
+      leftPadding + rightPadding + pxPerHour * hours;
+  static double get canvasHeight =>
+      topPadding + rowHeight * _ActivityType.values.length + bottomPadding;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.grey.shade400
+      ..strokeWidth = 1;
+
+    // Draw lane backgrounds.
+    for (var i = 0; i < _ActivityType.values.length; i++) {
+      final laneTop = topPadding + i * rowHeight;
+      final laneRect = Rect.fromLTWH(
+        leftPadding,
+        laneTop,
+        chartWidth - leftPadding - rightPadding,
+        laneHeight,
+      );
+      final laneColor = _activityColors[_ActivityType.values[i]]!;
+      final laneRRect = RRect.fromRectAndRadius(laneRect, const Radius.circular(10));
+      canvas.drawRRect(
+        laneRRect,
+        Paint()..color = laneColor.withOpacity(0.06),
+      );
+      canvas.drawRRect(
+        laneRRect,
+        Paint()
+          ..color = laneColor.withOpacity(0.15)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1,
+      );
+    }
+
+    // Draw hour markers.
+    final end = now.add(const Duration(hours: 2));
+    final timeBase = DateTime(end.year, end.month, end.day, end.hour); // snap to hour
+    final start = timeBase.subtract(Duration(hours: hoursSpanHours.toInt()));
+    final displayBase = start;
+    final spanHoursInt = hoursSpanHours.toInt();
+    for (var h = 0; h <= spanHoursInt; h++) {
+      final t = start.add(Duration(hours: h));
+      final x = _xForTime(t, start);
+      // Only draw the hour label (no vertical grid lines).
+      final labelTime = displayBase.add(Duration(hours: h));
+      final hh = labelTime.hour.toString().padLeft(2, '0');
+      const mm = '00';
+      _drawText(
+        canvas,
+        '$hh:$mm',
+        Offset(x - 18, 0),
+        color: const Color(0xFF6F7390),
+      );
+      paint.color = Colors.grey.shade400; // reset
+    }
+
+    // Draw events.
+    for (final event in events.where((e) => e.time.isAfter(start))) {
+      final idx = _ActivityType.values.indexOf(event.activity);
+      final laneTop = topPadding + idx * rowHeight;
+      final y = laneTop + laneHeight / 2;
+      final x = _xForTime(event.time, start);
+      canvas.drawCircle(
+        Offset(x, y),
+        6,
+        Paint()..color = _activityColors[event.activity]!,
+      );
+    }
+  }
+
+  double _xForTime(DateTime time, DateTime start) {
+    final totalMs = Duration(hours: hoursSpanHours.toInt()).inMilliseconds.toDouble();
+    final offsetMs = time.difference(start).inMilliseconds.toDouble().clamp(0, totalMs);
+    final usableWidth = chartWidth - leftPadding - rightPadding;
+    return leftPadding + (offsetMs / totalMs) * usableWidth;
+  }
+
+  void _drawText(Canvas canvas, String text, Offset offset, {Color color = Colors.black54}) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(fontSize: 12, color: color),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, offset);
+  }
+
+  String _labelFor(_ActivityType type) {
+    switch (type) {
+      case _ActivityType.bottle:
+        return 'Bottle';
+      case _ActivityType.diaper:
+        return 'Diaper';
+      case _ActivityType.poop:
+        return 'Poop';
+      case _ActivityType.nap:
+        return 'Nap';
+      case _ActivityType.shower:
+        return 'Shower';
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _TimelinePainter oldDelegate) {
+    return oldDelegate.events != events || oldDelegate.now != now;
+  }
+}
+
+class _EventButton extends StatelessWidget {
+  const _EventButton({
+    required this.color,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final Color color;
+  final Widget icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color.withOpacity(0.16),
+        foregroundColor: const Color(0xFF2E2E42),
+        shadowColor: Colors.transparent,
+        padding: EdgeInsets.zero,
+        minimumSize: const Size(52, 44),
+        fixedSize: const Size(52, 44),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+      ),
+      onPressed: onPressed,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.25),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Center(child: icon),
           ),
         ],
       ),
