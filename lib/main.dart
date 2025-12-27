@@ -8,6 +8,7 @@
 // following the Material Design guidelines.
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 
 // The main() function is the entry point of every Dart application.
@@ -77,6 +78,9 @@ class _MyHomePageState extends State<MyHomePage> {
   late final AudioPlayer _player;
   final ScrollController _timelineController = ScrollController();
   double _hoursSpan = 24;
+  _PageTab _selectedTab = _PageTab.timeline;
+  DateTime _currentMonth = DateTime(DateTime.now().year, DateTime.now().month);
+  final List<_CalendarEvent> _calendarEvents = [];
 
   /// _isFabExpanded tracks whether the floating action button options are expanded or not.
   /// This boolean state controls the visibility and animation of additional buttons.
@@ -155,6 +159,233 @@ class _MyHomePageState extends State<MyHomePage> {
     await _player.play(source);
   }
 
+  Map<_ActivityType, int> _eventCountsLast24Hours() {
+    final now = DateTime.now();
+    final counts = {for (final type in _ActivityType.values) type: 0};
+    for (final event in _events) {
+      if (now.difference(event.time) <= const Duration(hours: 24)) {
+        counts[event.activity] = (counts[event.activity] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  void _changeMonth(int delta) {
+    setState(() {
+      _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + delta);
+    });
+  }
+
+  Future<void> _promptAddCalendarEvent() async {
+    DateTime? selectedDate = DateTime.now();
+    _CalendarEventType selectedType = _CalendarEventType.doctor;
+    final titleController = TextEditingController(text: 'Doctor visit');
+    final notesController = TextEditingController();
+
+    final result = await showDialog<_CalendarEvent>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setLocalState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Text(
+                'Add Appointment',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              content: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Date',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 6),
+                    GestureDetector(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate ?? DateTime.now(),
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2100),
+                        );
+                        if (picked != null) {
+                          setLocalState(() => selectedDate = picked);
+                        }
+                      },
+                      child: InputDecorator(
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: const Color(0xFFF5F6F9),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              _formatDate(selectedDate),
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF2E2E42),
+                              ),
+                            ),
+                            const Icon(Icons.calendar_today_outlined, size: 18),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Type',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<_CalendarEventType>(
+                      value: selectedType,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: const Color(0xFFF5F6F9),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                      ),
+                      items: _CalendarEventType.values
+                          .map(
+                            (t) => DropdownMenuItem(
+                              value: t,
+                              child: Text(
+                                _calendarEventTypeLabel(t),
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF2E2E42),
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (t) => setLocalState(() => selectedType = t ?? selectedType),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Title',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: titleController,
+                      decoration: InputDecoration(
+                        hintText: 'e.g., Pediatrician checkup',
+                        filled: true,
+                        fillColor: const Color(0xFFF5F6F9),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Notes (optional)',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: notesController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText: 'Additional details...',
+                        filled: true,
+                        fillColor: const Color(0xFFF5F6F9),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+              actions: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          final eventTitle = titleController.text.trim().isEmpty
+                              ? _calendarEventTypeLabel(selectedType)
+                              : titleController.text.trim();
+                          Navigator.of(ctx).pop(
+                            _CalendarEvent(
+                              date: selectedDate ?? DateTime.now(),
+                              title: eventTitle,
+                              type: selectedType,
+                              notes: notesController.text.trim().isEmpty
+                                  ? null
+                                  : notesController.text.trim(),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF5E8BFF),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: const Text('Add Appointment'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result == null) return;
+    setState(() {
+      _calendarEvents.add(result);
+    });
+  }
+
   @override
   void dispose() {
     _player.dispose();
@@ -165,13 +396,64 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final counts = _eventCountsLast24Hours();
     // Scaffold provides a basic visual layout structure for the app,
     // including app bar, body, floating action button, and more.
     return Scaffold(
-      // AppBar is the top toolbar that typically contains the title and actions.
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        toolbarHeight: 92,
+        titleSpacing: 16,
+        title: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: const BoxDecoration(
+                borderRadius: BorderRadius.all(Radius.circular(18)),
+                gradient: LinearGradient(
+                  colors: [Color(0xFF5E8BFF), Color(0xFF9248F5)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: const Center(
+                child: Icon(
+                  Icons.child_care_outlined,
+                  size: 30,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Text(
+                  'Parent Companion',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF2E2E42),
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  "Monitor your little one's routine",
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF6F7390),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
       // The body is the main content area of the screen.
       // Center centers its child widget within itself.
@@ -190,77 +472,12 @@ class _MyHomePageState extends State<MyHomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  'Activity Timeline',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF2E2E42),
-                      ),
+                _PageSelector(
+                  selected: _selectedTab,
+                  onSelected: (tab) => setState(() => _selectedTab = tab),
                 ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Last 24 hours of activity',
-                  style: TextStyle(color: Color(0xFF6F7390)),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.06),
-                        blurRadius: 14,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        height: _TimelinePainter.canvasHeight,
-                        child: _Timeline(
-                          events: _events,
-                          controller: _timelineController,
-                          hoursSpanHours: _hoursSpan,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _EventButton(
-                            color: _activityColors[_ActivityType.bottle]!,
-                            icon: _buildActivityIcon(_ActivityType.bottle, 18),
-                            onPressed: () => _addEvent(_ActivityType.bottle),
-                          ),
-                          _EventButton(
-                            color: _activityColors[_ActivityType.diaper]!,
-                            icon: _buildActivityIcon(_ActivityType.diaper, 18),
-                            onPressed: () => _addEvent(_ActivityType.diaper),
-                          ),
-                          _EventButton(
-                            color: _activityColors[_ActivityType.poop]!,
-                            icon: _buildActivityIcon(_ActivityType.poop, 18),
-                            onPressed: () => _addEvent(_ActivityType.poop),
-                          ),
-                          _EventButton(
-                            color: _activityColors[_ActivityType.nap]!,
-                            icon: _buildActivityIcon(_ActivityType.nap, 18),
-                            onPressed: () => _addEvent(_ActivityType.nap),
-                          ),
-                          _EventButton(
-                            color: _activityColors[_ActivityType.shower]!,
-                            icon: _buildActivityIcon(_ActivityType.shower, 18),
-                            onPressed: () => _addEvent(_ActivityType.shower),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+                const SizedBox(height: 20),
+                ..._buildPageContent(counts),
               ],
             ),
           ),
@@ -330,12 +547,599 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
     );
   }
+
+  List<Widget> _buildPageContent(Map<_ActivityType, int> counts) {
+    if (_selectedTab == _PageTab.timeline) {
+      return [
+        Text(
+          'Activity Timeline',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF2E2E42),
+              ),
+        ),
+        const SizedBox(height: 4),
+        const SizedBox(height: 16),
+        _buildTimelineCard(),
+        const SizedBox(height: 16),
+        _buildSummaryCard(counts),
+      ];
+    }
+
+    if (_selectedTab == _PageTab.calendar) {
+      return [
+        Text(
+          'Calendar',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF2E2E42),
+              ),
+        ),
+        const SizedBox(height: 4),
+        const SizedBox(height: 16),
+        _buildCalendarCard(),
+      ];
+    }
+
+    final label = _tabLabel(_selectedTab);
+    return [_buildPlaceholderCard(title: label, description: 'This view is coming soon. Stay tuned!')];
+  }
+
+  Widget _buildTimelineCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: _TimelinePainter.canvasHeight,
+            child: _Timeline(
+              events: _events,
+              controller: _timelineController,
+              hoursSpanHours: _hoursSpan,
+            ),
+          ),
+          const SizedBox(height: 16),
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 4,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 1.2,
+            children: _ActivityType.values
+                .map(
+                  (type) => _EventButton(
+                    color: _activityColors[type]!,
+                    icon: _buildActivityIcon(type, 18),
+                    onPressed: () => _addEvent(type),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard(Map<_ActivityType, int> counts) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Last 24 hours summary',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF2E2E42),
+                ),
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final cardWidth = (constraints.maxWidth - 12) / 2;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: _ActivityType.values.map((type) {
+                  final count = counts[type] ?? 0;
+                  final accent = _activityColors[type]!;
+                  return SizedBox(
+                    width: cardWidth,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: _activityCardBackgrounds[type] ?? accent.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          _buildActivityIcon(type, 22),
+                          const SizedBox(width: 10),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '$count',
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: accent.withOpacity(0.95),
+                                ),
+                              ),
+                              Text(
+                                _activityLabel(type),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: accent.withOpacity(0.85),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCalendarCard() {
+    final daysInMonth = DateUtils.getDaysInMonth(_currentMonth.year, _currentMonth.month);
+    final firstWeekday = DateTime(_currentMonth.year, _currentMonth.month, 1).weekday % 7; // 0 = Sun
+    final totalCells = firstWeekday + daysInMonth;
+    final monthLabel = '${_monthNames[_currentMonth.month - 1]} ${_currentMonth.year.toString()}';
+    final monthEvents = _calendarEvents
+        .where(
+          (e) => e.date.year == _currentMonth.year && e.date.month == _currentMonth.month,
+        )
+        .toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                onPressed: () => _changeMonth(-1),
+              ),
+              Column(
+                children: [
+                  Text(
+                    monthLabel,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF2E2E42),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${monthEvents.length} event${monthEvents.length == 1 ? '' : 's'} this month',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF6F7390),
+                    ),
+                  ),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                onPressed: () => _changeMonth(1),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: const [
+              _CalendarHeaderCell(label: 'Sun'),
+              _CalendarHeaderCell(label: 'Mon'),
+              _CalendarHeaderCell(label: 'Tue'),
+              _CalendarHeaderCell(label: 'Wed'),
+              _CalendarHeaderCell(label: 'Thu'),
+              _CalendarHeaderCell(label: 'Fri'),
+              _CalendarHeaderCell(label: 'Sat'),
+            ],
+          ),
+          const SizedBox(height: 8),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: ((totalCells / 7).ceil() * 7),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              mainAxisSpacing: 6,
+              crossAxisSpacing: 6,
+            ),
+            itemBuilder: (context, index) {
+              final dayNumber = index - firstWeekday + 1;
+              if (dayNumber < 1 || dayNumber > daysInMonth) {
+                return const SizedBox.shrink();
+              }
+              final date = DateTime(_currentMonth.year, _currentMonth.month, dayNumber);
+              final hasEvent = monthEvents.any((e) => _isSameDay(e.date, date));
+              final isToday = _isSameDay(date, DateTime.now());
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                decoration: BoxDecoration(
+                  color: hasEvent ? const Color(0xFFE8F1FF) : Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isToday ? const Color(0xFF5E8BFF) : Colors.grey.shade300,
+                    width: isToday ? 1.6 : 1,
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      top: 6,
+                      left: 6,
+                      child: Text(
+                        '$dayNumber',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF2E2E42).withOpacity(hasEvent ? 0.95 : 0.8),
+                        ),
+                      ),
+                    ),
+                    if (hasEvent)
+                      Positioned(
+                        bottom: 6,
+                        left: 6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF5E8BFF),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text(
+                            'Event',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          _PrimaryGradientButton(
+            onPressed: _promptAddCalendarEvent,
+            label: 'Add appointment',
+          ),
+          const SizedBox(height: 8),
+          if (monthEvents.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
+            ...monthEvents.map(
+              (e) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6.0),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF5E8BFF),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${e.date.day.toString().padLeft(2, '0')}/${e.date.month.toString().padLeft(2, '0')}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF2E2E42),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${_calendarEventTypeLabel(e.type)} — ${e.title}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF2E2E42),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          if (e.notes != null && e.notes!.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              e.notes!,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF6F7390),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlaceholderCard({required String title, required String description}) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF2E2E42),
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            description,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Color(0xFF6F7390),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CalendarEvent {
+  _CalendarEvent({
+    required this.date,
+    required this.title,
+    required this.type,
+    this.notes,
+  });
+
+  final DateTime date;
+  final String title;
+  final _CalendarEventType type;
+  final String? notes;
+}
+
+enum _CalendarEventType { doctor, test, vaccine, other }
+
+class _CalendarHeaderCell extends StatelessWidget {
+  const _CalendarHeaderCell({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Center(
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF6F7390),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+const _monthNames = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
+class _PrimaryGradientButton extends StatelessWidget {
+  const _PrimaryGradientButton({required this.onPressed, required this.label});
+
+  final VoidCallback onPressed;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: Material(
+        color: Colors.transparent,
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF5E8BFF), Color(0xFF9248F5)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: onPressed,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              child: Center(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// _NoiseType is an enum representing the types of noise available.
 /// Enums in Dart define a fixed set of constant values.
 /// Using enums here is preferable to strings because it provides type safety and prevents invalid values.
 enum _NoiseType { white, brown }
+
+enum _PageTab { timeline, calendar, vaccines, growth }
+
+String _calendarEventTypeLabel(_CalendarEventType type) {
+  switch (type) {
+    case _CalendarEventType.doctor:
+      return 'Doctor';
+    case _CalendarEventType.test:
+      return 'Test';
+    case _CalendarEventType.vaccine:
+      return 'Vaccine';
+    case _CalendarEventType.other:
+      return 'Other';
+  }
+}
+
+String _formatDate(DateTime? date) {
+  if (date == null) return 'yyyy-mm-dd';
+  final m = date.month.toString().padLeft(2, '0');
+  final d = date.day.toString().padLeft(2, '0');
+  return '${date.year}-$m-$d';
+}
+
+class _PageSelector extends StatelessWidget {
+  const _PageSelector({required this.selected, required this.onSelected});
+
+  final _PageTab selected;
+  final ValueChanged<_PageTab> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF1F4FF), Color(0xFFF9F3FF)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: _PageTab.values.map((tab) {
+          final isActive = tab == selected;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => onSelected(tab),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: isActive ? Colors.white : Colors.transparent,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: isActive
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Center(
+                  child: Text(
+                    _tabLabel(tab),
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
+                      color: const Color(0xFF1F2430),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
 
 /// _ExpandingAction is a stateless widget representing one of the expanding floating action buttons.
 /// It exists to encapsulate the UI and behavior of the labeled button with an icon.
@@ -398,7 +1202,7 @@ class _ExpandingAction extends StatelessWidget {
   }
 }
 
-enum _ActivityType { bottle, diaper, poop, nap, shower }
+enum _ActivityType { bottle, diaper, poop, nap, shower, tummyTime, pumping, medication }
 
 const _activityColors = <_ActivityType, Color>{
   _ActivityType.bottle: Color(0xFF6BA6FF),
@@ -406,6 +1210,20 @@ const _activityColors = <_ActivityType, Color>{
   _ActivityType.poop: Color(0xFFB07C57),
   _ActivityType.nap: Color(0xFFB48CFF),
   _ActivityType.shower: Color(0xFF6ED3C2),
+  _ActivityType.tummyTime: Color(0xFFFF9EC7),
+  _ActivityType.pumping: Color(0xFF5BC8F6),
+  _ActivityType.medication: Color(0xFF74C27F),
+};
+
+const _activityCardBackgrounds = <_ActivityType, Color>{
+  _ActivityType.bottle: Color(0xFFE8F1FF),
+  _ActivityType.diaper: Color(0xFFFFF4DB),
+  _ActivityType.poop: Color(0xFFF1E1D3),
+  _ActivityType.nap: Color(0xFFF1E8FF),
+  _ActivityType.shower: Color(0xFFE4FFF7),
+  _ActivityType.tummyTime: Color(0xFFFFE8F2),
+  _ActivityType.pumping: Color(0xFFE8F7FF),
+  _ActivityType.medication: Color(0xFFE9F7EB),
 };
 
 const _activityIcons = <_ActivityType, IconData?>{
@@ -414,7 +1232,44 @@ const _activityIcons = <_ActivityType, IconData?>{
   _ActivityType.poop: null, // uses custom asset
   _ActivityType.nap: Icons.nightlight_round,
   _ActivityType.shower: Icons.shower_outlined,
+  _ActivityType.tummyTime: Icons.self_improvement,
+  _ActivityType.pumping: Icons.opacity,
+  _ActivityType.medication: Icons.medication_outlined,
 };
+
+String _tabLabel(_PageTab tab) {
+  switch (tab) {
+    case _PageTab.timeline:
+      return 'Timeline';
+    case _PageTab.calendar:
+      return 'Calendar';
+    case _PageTab.vaccines:
+      return 'Vaccines';
+    case _PageTab.growth:
+      return 'Growth';
+  }
+}
+
+String _activityLabel(_ActivityType type) {
+  switch (type) {
+    case _ActivityType.bottle:
+      return 'Bottle';
+    case _ActivityType.diaper:
+      return 'Diaper';
+    case _ActivityType.poop:
+      return 'Poop';
+    case _ActivityType.nap:
+      return 'Nap';
+    case _ActivityType.shower:
+      return 'Shower';
+    case _ActivityType.tummyTime:
+      return 'Tummy Time';
+    case _ActivityType.pumping:
+      return 'Pumping';
+    case _ActivityType.medication:
+      return 'Medication';
+  }
+}
 
 Widget _buildActivityIcon(_ActivityType type, double size) {
   final iconData = _activityIcons[type];
@@ -615,6 +1470,12 @@ class _TimelinePainter extends CustomPainter {
         return 'Nap';
       case _ActivityType.shower:
         return 'Shower';
+      case _ActivityType.tummyTime:
+        return 'Tummy Time';
+      case _ActivityType.pumping:
+        return 'Pumping';
+      case _ActivityType.medication:
+        return 'Medication';
     }
   }
 
