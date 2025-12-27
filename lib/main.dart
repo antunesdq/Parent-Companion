@@ -81,6 +81,7 @@ class _MyHomePageState extends State<MyHomePage> {
   _PageTab _selectedTab = _PageTab.timeline;
   DateTime _currentMonth = DateTime(DateTime.now().year, DateTime.now().month);
   final List<_CalendarEvent> _calendarEvents = [];
+  final List<_Vaccine> _vaccines = [];
 
   /// _isFabExpanded tracks whether the floating action button options are expanded or not.
   /// This boolean state controls the visibility and animation of additional buttons.
@@ -176,6 +177,188 @@ class _MyHomePageState extends State<MyHomePage> {
   void _changeMonth(int delta) {
     setState(() {
       _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + delta);
+    });
+  }
+
+  Future<void> _promptAddVaccine() async {
+    DateTime? selectedDate = DateTime.now();
+    bool administered = false;
+    final nameController = TextEditingController();
+    final notesController = TextEditingController();
+
+    final result = await showDialog<_Vaccine>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setLocalState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text(
+              'Add Vaccine',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+            contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Vaccine name',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: nameController,
+                    decoration: InputDecoration(
+                      hintText: 'e.g., DTaP booster',
+                      filled: true,
+                      fillColor: const Color(0xFFF5F6F9),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Date',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 6),
+                  GestureDetector(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate ?? DateTime.now(),
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2100),
+                      );
+                      if (picked != null) {
+                        setLocalState(() => selectedDate = picked);
+                      }
+                    },
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: const Color(0xFFF5F6F9),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _formatDate(selectedDate),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF2E2E42),
+                            ),
+                          ),
+                          const Icon(Icons.calendar_today_outlined, size: 18),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Notes (optional)',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: notesController,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      hintText: 'Additional details...',
+                      filled: true,
+                      fillColor: const Color(0xFFF5F6F9),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: administered,
+                        onChanged: (val) => setLocalState(() => administered = val ?? false),
+                      ),
+                      const SizedBox(width: 4),
+                      const Text(
+                        'Already administered',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+            actions: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final title = nameController.text.trim().isEmpty
+                            ? 'Vaccine'
+                            : nameController.text.trim();
+                        Navigator.of(ctx).pop(
+                          _Vaccine(
+                            name: title,
+                            date: selectedDate ?? DateTime.now(),
+                            notes: notesController.text.trim().isEmpty
+                                ? null
+                                : notesController.text.trim(),
+                            administered: administered,
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2EB872),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text('Save'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        });
+      },
+    );
+
+    if (result == null) return;
+    setState(() {
+      _vaccines.add(result);
     });
   }
 
@@ -581,6 +764,10 @@ class _MyHomePageState extends State<MyHomePage> {
       ];
     }
 
+    if (_selectedTab == _PageTab.vaccines) {
+      return _buildVaccineContent();
+    }
+
     final label = _tabLabel(_selectedTab);
     return [_buildPlaceholderCard(title: label, description: 'This view is coming soon. Stay tuned!')];
   }
@@ -709,6 +896,212 @@ class _MyHomePageState extends State<MyHomePage> {
               );
             },
           ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildVaccineContent() {
+    final completed = _vaccines.where((v) => v.administered).toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+    final upcoming = _vaccines.where((v) => !v.administered).toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+
+    return [
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Vaccine Tracker',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF2E2E42),
+                    ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '${completed.length} completed · ${upcoming.length} upcoming',
+                style: const TextStyle(color: Color(0xFF6F7390), fontSize: 14),
+              ),
+            ],
+          ),
+          SizedBox(
+            width: 160,
+            child: _PrimaryGradientButton(
+              onPressed: _promptAddVaccine,
+              label: 'Add Vaccine',
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 16),
+      _buildVaccineSection(
+        title: 'Upcoming Vaccines',
+        icon: Icons.schedule,
+        iconColor: const Color(0xFFFFA22C),
+        vaccines: upcoming,
+      ),
+      const SizedBox(height: 14),
+      _buildVaccineSection(
+        title: 'Completed Vaccines',
+        icon: Icons.check_circle_outline,
+        iconColor: const Color(0xFF2EB872),
+        vaccines: completed,
+      ),
+    ];
+  }
+
+  Widget _buildVaccineSection({
+    required String title,
+    required IconData icon,
+    required Color iconColor,
+    required List<_Vaccine> vaccines,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: iconColor),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF2E2E42),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (vaccines.isEmpty)
+            SizedBox(
+              width: double.infinity,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 18.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: const [
+                    Icon(Icons.remove_circle_outline, size: 40, color: Color(0xFFC2C6D6)),
+                    SizedBox(height: 6),
+                    Text(
+                      'No vaccines recorded yet',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Color(0xFF6F7390)),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            Column(
+              children: vaccines
+                  .map(
+                    (v) => GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          final idx = _vaccines.indexOf(v);
+                          if (idx != -1) _vaccines[idx] = v.toggleAdministered();
+                        });
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(vertical: 6),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8F9FB),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: v.administered
+                                ? const Color(0xFF2EB872).withOpacity(0.4)
+                                : Colors.grey.shade300,
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              v.administered ? Icons.check_circle : Icons.pending_outlined,
+                              color: v.administered ? const Color(0xFF2EB872) : iconColor,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    v.name,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF2E2E42),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _formatDate(v.date),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF6F7390),
+                                    ),
+                                  ),
+                                  if (v.notes != null && v.notes!.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      v.notes!,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: Color(0xFF4B4F67),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: v.administered
+                                    ? const Color(0xFF2EB872).withOpacity(0.15)
+                                    : iconColor.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                v.administered ? 'Done' : 'Tap to check',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: v.administered
+                                      ? const Color(0xFF2EB872)
+                                      : iconColor.withOpacity(0.9),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
         ],
       ),
     );
@@ -971,6 +1364,27 @@ class _CalendarEvent {
   final String title;
   final _CalendarEventType type;
   final String? notes;
+}
+
+class _Vaccine {
+  _Vaccine({
+    required this.name,
+    required this.date,
+    this.notes,
+    this.administered = false,
+  });
+
+  final String name;
+  final DateTime date;
+  final String? notes;
+  final bool administered;
+
+  _Vaccine toggleAdministered() => _Vaccine(
+        name: name,
+        date: date,
+        notes: notes,
+        administered: !administered,
+      );
 }
 
 enum _CalendarEventType { doctor, test, vaccine, other }
