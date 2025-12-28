@@ -82,6 +82,7 @@ class _MyHomePageState extends State<MyHomePage> {
   DateTime _currentMonth = DateTime(DateTime.now().year, DateTime.now().month);
   final List<_CalendarEvent> _calendarEvents = [];
   final List<_Vaccine> _vaccines = [];
+  final List<_Measurement> _measurements = [];
 
   /// _isFabExpanded tracks whether the floating action button options are expanded or not.
   /// This boolean state controls the visibility and animation of additional buttons.
@@ -569,6 +570,200 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  Future<void> _promptAddMeasurement() async {
+    DateTime? selectedDate = DateTime.now();
+    final heightController = TextEditingController();
+    final weightController = TextEditingController();
+    final commentController = TextEditingController();
+
+    final result = await showDialog<_Measurement>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setLocalState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text(
+              'Add Measurement',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+            contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Date',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 6),
+                  GestureDetector(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate ?? DateTime.now(),
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2100),
+                      );
+                      if (picked != null) setLocalState(() => selectedDate = picked);
+                    },
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: const Color(0xFFF5F6F9),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _formatDate(selectedDate),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF2E2E42),
+                            ),
+                          ),
+                          const Icon(Icons.calendar_today_outlined, size: 18),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Height (cm)',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: heightController,
+                    keyboardType: TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      hintText: 'e.g., 70',
+                      filled: true,
+                      fillColor: const Color(0xFFF5F6F9),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Weight (kg)',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: weightController,
+                    keyboardType: TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      hintText: 'e.g., 6.5',
+                      filled: true,
+                      fillColor: const Color(0xFFF5F6F9),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Comment (optional)',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: commentController,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      hintText: 'Notes or context...',
+                      filled: true,
+                      fillColor: const Color(0xFFF5F6F9),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+            actions: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final height = double.tryParse(heightController.text.trim());
+                        final weight = double.tryParse(weightController.text.trim());
+                        if (height == null && weight == null) {
+                          Navigator.of(ctx).pop();
+                          return;
+                        }
+                        Navigator.of(ctx).pop(
+                          _Measurement(
+                            date: selectedDate ?? DateTime.now(),
+                            heightCm: height,
+                            weightKg: weight,
+                            comment: commentController.text.trim().isEmpty
+                                ? null
+                                : commentController.text.trim(),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF5E8BFF),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text('Save'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        });
+      },
+    );
+
+    if (result == null) return;
+    setState(() {
+      _measurements.add(result);
+    });
+  }
+
+
   @override
   void dispose() {
     _player.dispose();
@@ -766,6 +961,10 @@ class _MyHomePageState extends State<MyHomePage> {
 
     if (_selectedTab == _PageTab.vaccines) {
       return _buildVaccineContent();
+    }
+
+    if (_selectedTab == _PageTab.growth) {
+      return _buildGrowthContent();
     }
 
     final label = _tabLabel(_selectedTab);
@@ -1107,6 +1306,384 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  List<Widget> _buildGrowthContent() {
+    final sorted = [..._measurements]..sort((a, b) => a.date.compareTo(b.date));
+    final latestHeight = sorted.reversed.firstWhere(
+      (m) => m.heightCm != null,
+      orElse: () => _Measurement(date: DateTime.now()),
+    );
+    final latestWeight = sorted.reversed.firstWhere(
+      (m) => m.weightKg != null,
+      orElse: () => _Measurement(date: DateTime.now()),
+    );
+
+    return [
+      _buildGrowthSummaryCard(
+        measurementCount: sorted.length,
+        latestHeight: latestHeight.heightCm,
+        latestWeight: latestWeight.weightKg,
+      ),
+      const SizedBox(height: 16),
+      _buildGrowthChartCard(
+        title: 'Height Growth',
+        icon: Icons.straighten,
+        color: const Color(0xFF5E8BFF),
+        points: sorted
+            .where((m) => m.heightCm != null)
+            .map((m) => _GrowthPoint(date: m.date, value: m.heightCm!))
+            .toList(),
+        unit: 'cm',
+      ),
+      const SizedBox(height: 12),
+      _buildGrowthChartCard(
+        title: 'Weight Growth',
+        icon: Icons.fitness_center,
+        color: const Color(0xFFB048F5),
+        points: sorted
+            .where((m) => m.weightKg != null)
+            .map((m) => _GrowthPoint(date: m.date, value: m.weightKg!))
+            .toList(),
+        unit: 'kg',
+      ),
+      const SizedBox(height: 12),
+      _buildMeasurementHistory(sorted),
+    ];
+  }
+
+  Widget _buildGrowthSummaryCard({
+    required int measurementCount,
+    double? latestHeight,
+    double? latestWeight,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isTight = constraints.maxWidth < 420;
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (isTight) ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F1FF),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.show_chart, color: Color(0xFF5E8BFF)),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Growth Tracker',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF2E2E42),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '$measurementCount measurement${measurementCount == 1 ? '' : 's'} recorded',
+                            style: const TextStyle(color: Color(0xFF6F7390)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _PrimaryGradientButton(
+                  onPressed: _promptAddMeasurement,
+                  label: 'Add Measurement',
+                ),
+              ] else ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8F1FF),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.show_chart, color: Color(0xFF5E8BFF)),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Growth Tracker',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF2E2E42),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '$measurementCount measurement${measurementCount == 1 ? '' : 's'} recorded',
+                              style: const TextStyle(color: Color(0xFF6F7390)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    SizedBox(
+                      width: 170,
+                      child: _PrimaryGradientButton(
+                        onPressed: _promptAddMeasurement,
+                        label: 'Add Measurement',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _GrowthStatCard(
+                      title: 'Latest Height',
+                      value: latestHeight != null ? latestHeight.toStringAsFixed(1) : '--',
+                      unit: 'cm',
+                      color: const Color(0xFFE8F1FF),
+                      icon: Icons.straighten,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _GrowthStatCard(
+                      title: 'Latest Weight',
+                      value: latestWeight != null ? latestWeight.toStringAsFixed(1) : '--',
+                      unit: 'kg',
+                      color: const Color(0xFFF3E8FF),
+                      icon: Icons.monitor_weight,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildGrowthChartCard({
+    required String title,
+    required IconData icon,
+    required Color color,
+    required List<_GrowthPoint> points,
+    required String unit,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF2E2E42),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (points.isEmpty)
+            SizedBox(
+              height: 160,
+              child: Center(
+                child: Text(
+                  'No data yet',
+                  style: TextStyle(color: Colors.grey.shade600),
+                ),
+              ),
+            )
+          else
+            SizedBox(
+              height: 220,
+              child: _GrowthChart(
+                points: points,
+                color: color,
+                unit: unit,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMeasurementHistory(List<_Measurement> measurements) {
+    final sorted = [...measurements]..sort((a, b) => b.date.compareTo(a.date));
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.history, color: Color(0xFF5E8BFF)),
+              SizedBox(width: 8),
+              Text(
+                'Measurement History',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF2E2E42),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (sorted.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12.0),
+              child: Center(
+                child: Text(
+                  'No measurements recorded yet',
+                  style: TextStyle(color: Color(0xFF6F7390)),
+                ),
+              ),
+            )
+          else
+            Column(
+              children: sorted
+                  .map(
+                    (m) => Container(
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFF3F6FF), Color(0xFFF9F3FF)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFE0E4F0)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                _formatFullDate(m.date),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF2E2E42),
+                                ),
+                              ),
+                              const Spacer(),
+                              IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFF6F7390)),
+                                onPressed: () {
+                                  setState(() {
+                                    _measurements.remove(m);
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              if (m.heightCm != null) ...[
+                                const Icon(Icons.straighten, color: Color(0xFF5E8BFF)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${m.heightCm!.toStringAsFixed(1)} cm',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF2E2E42),
+                                  ),
+                                ),
+                              ],
+                              if (m.heightCm != null && m.weightKg != null) const SizedBox(width: 14),
+                              if (m.weightKg != null) ...[
+                                const Icon(Icons.fitness_center, color: Color(0xFFB048F5)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${m.weightKg!.toStringAsFixed(1)} kg',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF2E2E42),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          if (m.comment != null && m.comment!.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              m.comment!,
+                              style: const TextStyle(color: Color(0xFF4B4F67)),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCalendarCard() {
     final daysInMonth = DateUtils.getDaysInMonth(_currentMonth.year, _currentMonth.month);
     final firstWeekday = DateTime(_currentMonth.year, _currentMonth.month, 1).weekday % 7; // 0 = Sun
@@ -1366,6 +1943,20 @@ class _CalendarEvent {
   final String? notes;
 }
 
+class _Measurement {
+  _Measurement({
+    required this.date,
+    this.heightCm,
+    this.weightKg,
+    this.comment,
+  });
+
+  final DateTime date;
+  final double? heightCm;
+  final double? weightKg;
+  final String? comment;
+}
+
 class _Vaccine {
   _Vaccine({
     required this.name,
@@ -1469,6 +2060,205 @@ class _PrimaryGradientButton extends StatelessWidget {
   }
 }
 
+class _GrowthStatCard extends StatelessWidget {
+  const _GrowthStatCard({
+    required this.title,
+    required this.value,
+    required this.unit,
+    required this.color,
+    required this.icon,
+  });
+
+  final String title;
+  final String value;
+  final String unit;
+  final Color color;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      constraints: const BoxConstraints(minHeight: 140),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              Icon(icon, color: const Color(0xFF5E8BFF)),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF2E2E42),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF2E2E42),
+            ),
+          ),
+          Text(
+            unit,
+            style: const TextStyle(color: Color(0xFF6F7390)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GrowthPoint {
+  _GrowthPoint({required this.date, required this.value});
+
+  final DateTime date;
+  final double value;
+}
+
+class _GrowthChart extends StatelessWidget {
+  const _GrowthChart({required this.points, required this.color, required this.unit});
+
+  final List<_GrowthPoint> points;
+  final Color color;
+  final String unit;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return CustomPaint(
+          painter: _GrowthChartPainter(points: points, color: color, unit: unit),
+          size: Size(constraints.maxWidth, constraints.maxHeight),
+        );
+      },
+    );
+  }
+}
+
+class _GrowthChartPainter extends CustomPainter {
+  _GrowthChartPainter({required this.points, required this.color, required this.unit});
+
+  final List<_GrowthPoint> points;
+  final Color color;
+  final String unit;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.isEmpty) return;
+    final sorted = [...points]..sort((a, b) => a.date.compareTo(b.date));
+    final minY = 0.0;
+    final maxY = sorted.map((p) => p.value).reduce((a, b) => a > b ? a : b);
+    final yRange = (maxY - minY).abs() < 0.1 ? (maxY == 0 ? 1 : maxY) : (maxY - minY);
+    final minX = sorted.first.date.millisecondsSinceEpoch.toDouble();
+    final maxX = sorted.last.date.millisecondsSinceEpoch.toDouble();
+    final xRange = maxX == minX ? 1 : (maxX - minX);
+
+    const padding = EdgeInsets.fromLTRB(36, 16, 16, 32);
+    final chartWidth = size.width - padding.left - padding.right;
+    final chartHeight = size.height - padding.top - padding.bottom;
+
+    final axisPaint = Paint()
+      ..color = Colors.grey.shade400
+      ..strokeWidth = 1;
+
+    // Y axis and ticks.
+    const tickCount = 4;
+    for (var i = 0; i <= tickCount; i++) {
+      final t = i / tickCount;
+      final y = padding.top + chartHeight - t * chartHeight;
+      final value = minY + yRange * t;
+      final tp = TextPainter(
+        text: TextSpan(
+          text: value.toStringAsFixed(1),
+          style: const TextStyle(fontSize: 11, color: Color(0xFF6F7390)),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(0, y - tp.height / 2));
+      canvas.drawLine(Offset(padding.left, y), Offset(size.width - padding.right, y),
+          axisPaint..color = Colors.grey.shade300);
+    }
+
+    // X labels.
+    for (var i = 0; i < sorted.length; i++) {
+      final x =
+          padding.left + ((sorted[i].date.millisecondsSinceEpoch - minX) / xRange) * chartWidth;
+      final dateLabel = _formatShortDate(sorted[i].date);
+      final tp = TextPainter(
+        text: TextSpan(
+          text: dateLabel,
+          style: const TextStyle(fontSize: 11, color: Color(0xFF6F7390)),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(x - tp.width / 2, size.height - padding.bottom + 6));
+    }
+
+    // Line
+    final linePaint = Paint()
+      ..color = color
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    final path = Path();
+    for (var i = 0; i < sorted.length; i++) {
+      final px = padding.left +
+          ((sorted[i].date.millisecondsSinceEpoch - minX) / xRange) * chartWidth;
+      final py = padding.top + chartHeight - ((sorted[i].value - minY) / yRange) * chartHeight;
+      if (i == 0) {
+        path.moveTo(px, py);
+      } else {
+        path.lineTo(px, py);
+      }
+    }
+    canvas.drawPath(path, linePaint);
+
+    // Points
+    for (final p in sorted) {
+      final px = padding.left + ((p.date.millisecondsSinceEpoch - minX) / xRange) * chartWidth;
+      final py = padding.top + chartHeight - ((p.value - minY) / yRange) * chartHeight;
+      canvas.drawCircle(
+        Offset(px, py),
+        5,
+        Paint()..color = color,
+      );
+    }
+
+    // Unit label
+    final unitPainter = TextPainter(
+      text: TextSpan(
+        text: unit,
+        style: const TextStyle(fontSize: 12, color: Color(0xFF6F7390), fontWeight: FontWeight.w600),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    unitPainter.paint(canvas, Offset(size.width - padding.right - unitPainter.width, padding.top));
+  }
+
+  String _formatShortDate(DateTime date) {
+    return '${date.month}/${date.day}';
+  }
+
+  @override
+  bool shouldRepaint(covariant _GrowthChartPainter oldDelegate) {
+    return oldDelegate.points != points || oldDelegate.color != color;
+  }
+}
+
 /// _NoiseType is an enum representing the types of noise available.
 /// Enums in Dart define a fixed set of constant values.
 /// Using enums here is preferable to strings because it provides type safety and prevents invalid values.
@@ -1494,6 +2284,28 @@ String _formatDate(DateTime? date) {
   final m = date.month.toString().padLeft(2, '0');
   final d = date.day.toString().padLeft(2, '0');
   return '${date.year}-$m-$d';
+}
+
+String _formatDisplayDate(DateTime date) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec'
+  ];
+  return '${months[date.month - 1]} ${date.day}, ${date.year}';
+}
+
+String _formatFullDate(DateTime date) {
+  return '${_monthNames[date.month - 1]} ${date.day}, ${date.year}';
 }
 
 class _PageSelector extends StatelessWidget {
