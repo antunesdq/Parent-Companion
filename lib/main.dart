@@ -6,9 +6,12 @@
 // Dart import statements bring in external libraries or packages into the current file.
 // The 'material.dart' package provides a set of visual, structural, platform, and interactive widgets
 // following the Material Design guidelines.
+import 'dart:convert';
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 
 // The main() function is the entry point of every Dart application.
@@ -105,6 +108,7 @@ class _MyHomePageState extends State<MyHomePage> {
       }
     });
     _timelineController.addListener(_handleTimelineScroll);
+    _loadPersistedData();
   }
 
 
@@ -125,6 +129,7 @@ class _MyHomePageState extends State<MyHomePage> {
       _events.add(_Event(activity: activity, time: now));
       _events.removeWhere((e) => now.difference(e.time) > const Duration(hours: 24));
     });
+    _persistState();
   }
 
   void _handleTimelineScroll() {
@@ -159,6 +164,85 @@ class _MyHomePageState extends State<MyHomePage> {
     };
 
     await _player.play(source);
+  }
+
+  Future<void> _loadPersistedData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final tabName = prefs.getString(_prefsKeySelectedTab);
+      final eventsJson = prefs.getString(_prefsKeyEvents);
+      final calendarJson = prefs.getString(_prefsKeyCalendar);
+      final vaccineJson = prefs.getString(_prefsKeyVaccines);
+      final measurementJson = prefs.getString(_prefsKeyMeasurements);
+
+      setState(() {
+        if (tabName != null) {
+          _selectedTab = _PageTab.values.firstWhere(
+            (t) => t.name == tabName,
+            orElse: () => _PageTab.timeline,
+          );
+        }
+        if (eventsJson != null) {
+          final decoded = (jsonDecode(eventsJson) as List)
+              .map((e) => _Event.fromMap(e as Map<String, dynamic>))
+              .toList();
+          _events
+            ..clear()
+            ..addAll(decoded);
+        }
+        if (calendarJson != null) {
+          final decoded = (jsonDecode(calendarJson) as List)
+              .map((e) => _CalendarEvent.fromMap(e as Map<String, dynamic>))
+              .toList();
+          _calendarEvents
+            ..clear()
+            ..addAll(decoded);
+        }
+        if (vaccineJson != null) {
+          final decoded = (jsonDecode(vaccineJson) as List)
+              .map((e) => _Vaccine.fromMap(e as Map<String, dynamic>))
+              .toList();
+          _vaccines
+            ..clear()
+            ..addAll(decoded);
+        }
+        if (measurementJson != null) {
+          final decoded = (jsonDecode(measurementJson) as List)
+              .map((e) => _Measurement.fromMap(e as Map<String, dynamic>))
+              .toList();
+          _measurements
+            ..clear()
+            ..addAll(decoded);
+        }
+      });
+    } catch (_) {
+      // ignore corrupt persistence
+    }
+  }
+
+  Future<void> _persistState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _prefsKeyEvents,
+        jsonEncode(_events.map((e) => e.toMap()).toList()),
+      );
+      await prefs.setString(
+        _prefsKeyCalendar,
+        jsonEncode(_calendarEvents.map((e) => e.toMap()).toList()),
+      );
+      await prefs.setString(
+        _prefsKeyVaccines,
+        jsonEncode(_vaccines.map((v) => v.toMap()).toList()),
+      );
+      await prefs.setString(
+        _prefsKeyMeasurements,
+        jsonEncode(_measurements.map((m) => m.toMap()).toList()),
+      );
+      await prefs.setString(_prefsKeySelectedTab, _selectedTab.name);
+    } catch (_) {
+      // ignore write errors
+    }
   }
 
   Map<_ActivityType, int> _eventCountsLast24Hours() {
@@ -361,6 +445,7 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
       _vaccines.add(result);
     });
+    _persistState();
   }
 
   Future<void> _promptAddCalendarEvent() async {
@@ -568,6 +653,7 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
       _calendarEvents.add(result);
     });
+    _persistState();
   }
 
   Future<void> _promptAddMeasurement() async {
@@ -761,6 +847,7 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
       _measurements.add(result);
     });
+    _persistState();
   }
 
 
@@ -852,7 +939,10 @@ class _MyHomePageState extends State<MyHomePage> {
               children: [
                 _PageSelector(
                   selected: _selectedTab,
-                  onSelected: (tab) => setState(() => _selectedTab = tab),
+                  onSelected: (tab) {
+                    setState(() => _selectedTab = tab);
+                    _persistState();
+                  },
                 ),
                 const SizedBox(height: 20),
                 ..._buildPageContent(counts),
@@ -1220,6 +1310,7 @@ class _MyHomePageState extends State<MyHomePage> {
                           final idx = _vaccines.indexOf(v);
                           if (idx != -1) _vaccines[idx] = v.toggleAdministered();
                         });
+                        _persistState();
                       },
                       child: Container(
                         margin: const EdgeInsets.symmetric(vertical: 6),
@@ -1632,6 +1723,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                   setState(() {
                                     _measurements.remove(m);
                                   });
+                                  _persistState();
                                 },
                               ),
                             ],
@@ -1941,6 +2033,25 @@ class _CalendarEvent {
   final String title;
   final _CalendarEventType type;
   final String? notes;
+
+  Map<String, dynamic> toMap() => {
+        'date': date.toIso8601String(),
+        'title': title,
+        'type': type.name,
+        'notes': notes,
+      };
+
+  static _CalendarEvent fromMap(Map<String, dynamic> map) {
+    final typeName = map['type'] as String? ?? _CalendarEventType.doctor.name;
+    final type = _CalendarEventType.values
+        .firstWhere((t) => t.name == typeName, orElse: () => _CalendarEventType.doctor);
+    return _CalendarEvent(
+      date: DateTime.tryParse(map['date'] as String? ?? '') ?? DateTime.now(),
+      title: map['title'] as String? ?? 'Event',
+      type: type,
+      notes: map['notes'] as String?,
+    );
+  }
 }
 
 class _Measurement {
@@ -1955,6 +2066,22 @@ class _Measurement {
   final double? heightCm;
   final double? weightKg;
   final String? comment;
+
+  Map<String, dynamic> toMap() => {
+        'date': date.toIso8601String(),
+        'heightCm': heightCm,
+        'weightKg': weightKg,
+        'comment': comment,
+      };
+
+  static _Measurement fromMap(Map<String, dynamic> map) {
+    return _Measurement(
+      date: DateTime.tryParse(map['date'] as String? ?? '') ?? DateTime.now(),
+      heightCm: (map['heightCm'] as num?)?.toDouble(),
+      weightKg: (map['weightKg'] as num?)?.toDouble(),
+      comment: map['comment'] as String?,
+    );
+  }
 }
 
 class _Vaccine {
@@ -1976,6 +2103,22 @@ class _Vaccine {
         notes: notes,
         administered: !administered,
       );
+
+  Map<String, dynamic> toMap() => {
+        'name': name,
+        'date': date.toIso8601String(),
+        'notes': notes,
+        'administered': administered,
+      };
+
+  static _Vaccine fromMap(Map<String, dynamic> map) {
+    return _Vaccine(
+      name: map['name'] as String? ?? 'Vaccine',
+      date: DateTime.tryParse(map['date'] as String? ?? '') ?? DateTime.now(),
+      notes: map['notes'] as String?,
+      administered: map['administered'] as bool? ?? false,
+    );
+  }
 }
 
 enum _CalendarEventType { doctor, test, vaccine, other }
@@ -2266,6 +2409,12 @@ enum _NoiseType { white, brown }
 
 enum _PageTab { timeline, calendar, vaccines, growth }
 
+const _prefsKeyEvents = 'prefs_events';
+const _prefsKeyCalendar = 'prefs_calendar';
+const _prefsKeyVaccines = 'prefs_vaccines';
+const _prefsKeyMeasurements = 'prefs_measurements';
+const _prefsKeySelectedTab = 'prefs_selected_tab';
+
 String _calendarEventTypeLabel(_CalendarEventType type) {
   switch (type) {
     case _CalendarEventType.doctor:
@@ -2519,6 +2668,21 @@ class _Event {
 
   final _ActivityType activity;
   final DateTime time;
+
+  Map<String, dynamic> toMap() => {
+        'activity': activity.name,
+        'time': time.toIso8601String(),
+      };
+
+  static _Event fromMap(Map<String, dynamic> map) {
+    final activityName = map['activity'] as String? ?? _ActivityType.bottle.name;
+    final activity =
+        _ActivityType.values.firstWhere((a) => a.name == activityName, orElse: () => _ActivityType.bottle);
+    return _Event(
+      activity: activity,
+      time: DateTime.tryParse(map['time'] as String? ?? '') ?? DateTime.now(),
+    );
+  }
 }
 
 class _Timeline extends StatelessWidget {
