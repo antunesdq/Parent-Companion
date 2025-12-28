@@ -879,47 +879,42 @@ class _MyHomePageState extends State<MyHomePage> {
               height: 56,
               decoration: const BoxDecoration(
                 borderRadius: BorderRadius.all(Radius.circular(18)),
-                gradient: LinearGradient(
-                  colors: [Color(0xFF5E8BFF), Color(0xFF9248F5)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
               ),
-              child: const Center(
-                child: Icon(
-                  Icons.child_care_outlined,
-                  size: 30,
-                  color: Colors.white,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Image.asset(
+                  'assets/icons/app_icon.png',
+                  fit: BoxFit.cover,
                 ),
               ),
             ),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Text(
-                  'Parent Companion',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF2E2E42),
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  "Monitor your little one's routine",
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF6F7390),
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Text(
+                      'Parent Companion',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF2E2E42),
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      "Monitor your little one's routine",
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF6F7390),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
-      ),
+          ),
       // The body is the main content area of the screen.
       // Center centers its child widget within itself.
       // Column arranges its children vertically.
@@ -1136,7 +1131,8 @@ class _MyHomePageState extends State<MyHomePage> {
           const SizedBox(height: 12),
           LayoutBuilder(
             builder: (context, constraints) {
-              final cardWidth = (constraints.maxWidth - 12) / 2;
+              final available = constraints.maxWidth;
+              final cardWidth = ((available - 12) / 2).clamp(140.0, available).toDouble();
               return Wrap(
                 spacing: 12,
                 runSpacing: 12,
